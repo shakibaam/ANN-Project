@@ -11,29 +11,32 @@ def sigmoid(z):
     return 1 / (1 + np.exp(-z))
 
 
+#
 def sigmoid_prime(z):
     return sigmoid(z) * (1 - sigmoid(z))
 
 
 def calculate_cost(a3, y):
-    return np.sum(np.power(a3 - y, 2))
+    c = 0
+    for j in range(4):
+        c += np.power((a3[j, 0] - y[j, 0]), 2)
+    return c
 
 
 def softmax(z):
-    print(z.shape)
     e = np.exp(z)
-    print(np.sum(e, axis=1).shape)
-    return e / np.sum(e, axis=1)
+
+    return e / np.sum(e)
 
 
 def softmax_prime(s):
-    gradian_m = np.diag(s)
-    for i in range(len(gradian_m)):
-        for j in range(len(gradian_m)):
+    gradian_m = np.zeros((s.shape[0], s.shape[1]))
+    for i in range(gradian_m.shape[0]):
+        for j in range(gradian_m.shape[1]):
             if i == j:
-                gradian_m[i][j] = s[i] * (1 - s[i])
+                gradian_m[i, j] = s[i] * (1 - s[i])
             else:
-                gradian_m[i][j] = -s[i] * s[j]
+                gradian_m[i, j] = -s[i] * s[j]
     return gradian_m
 
 
@@ -123,7 +126,7 @@ def feed_forward(W, b, data_set):
         a2 = sigmoid(temp2)
         temp3 = np.matmul(w3, a2) + b3
         a3 = sigmoid(temp3)
-        # print(a3)
+
         train_random_200_output[:, count] = a3[:, 0]
         count += 1
         predicted_label = np.argmax(a3, axis=0)
@@ -131,9 +134,10 @@ def feed_forward(W, b, data_set):
             true_guess += 1
 
     Accuracy = (true_guess / len(data_set)) * 100
-    print("Accuracy of random init : ")
+    print("Accuracy of feed forward : ")
     print(Accuracy)
     print("---------------------------------------------")
+    return Accuracy
 
 
 # third phase
@@ -150,14 +154,10 @@ def back_propagation(W, b, data_set, epochs, batch_size, learning_rate):
     epoch_costs = []
     epoch_accuracies = []
     for e in range(epochs):
-        trueGuess = 0
-        accuracy = 0
-        current_epoch_cost = 0
+
         np.random.shuffle(data_set)
-        # batch_num = int(math.ceil(200 / batch_size))
+
         batches = [data_set[i:i + batch_size] for i in range(0, len(data_set), batch_size)]
-        train_random_200_output = np.zeros((4, len(data_set)))
-        original_output = np.zeros((4, len(data_set)))
 
         for batch in batches:
 
@@ -169,15 +169,10 @@ def back_propagation(W, b, data_set, epochs, batch_size, learning_rate):
             grad_b2 = np.zeros((60, 1))
             grad_b3 = np.zeros((4, 1))
 
-            grad_a1 = np.zeros((150, 1))
-            grad_a2 = np.zeros((60, 1))
-
             for image in batch:
 
                 # compute output
                 (a0, label) = image
-
-                original_label = np.argmax(label, axis=0)
 
                 z1 = (w1 @ a0) + b1
                 a1 = sigmoid(z1)
@@ -188,48 +183,48 @@ def back_propagation(W, b, data_set, epochs, batch_size, learning_rate):
                 z3 = (w3 @ a2) + b3
                 a3 = sigmoid(z3)
 
-                cost = calculate_cost(a3, label)
-
-                predicted_label = np.argmax(a3, axis=0)
-                if predicted_label[0] == original_label[0]:
-                    trueGuess += 1
-                current_epoch_cost += cost
-
                 # backpropagation phase
                 # layer 3 grad_w3 and grad_b3
 
-                for j in range(w3.shape[0]):
+                for j in range(grad_w3.shape[0]):
 
-                    grad_b3[j, 0] += (2 * a3[j, 0] - 2 * label[j, 0]) * sigmoid_prime(z3[j, 0])
+                    for k in range(grad_w3.shape[1]):
+                        grad_w3[j, k] += 2 * (a3[j, 0] - label[j, 0]) * sigmoid_prime(z3[j, 0]) * a2[k, 0]
 
-                    for k in range(w3.shape[1]):
-                        grad_w3[j, k] += (2 * a3[j, 0] - 2 * label[j, 0]) * sigmoid_prime(z3[j, 0]) * a2[k, 0]
+                for j in range(grad_b3.shape[0]):
+                    grad_b3[j, 0] += 2 * (a3[j, 0] - label[j, 0]) * sigmoid_prime(z3[j, 0])
 
                 # calculate grad_a2 for the next layer
-
+                grad_a2 = np.zeros((60, 1))
                 for k in range(60):
                     for j in range(4):
-                        grad_a2[k, 0] += (2 * a3[j, 0] - 2 * label[j, 0]) * sigmoid_prime(z3[j, 0]) * w3[j, k]
+                        grad_a2[k, 0] += 2 * (a3[j, 0] - label[j, 0]) * sigmoid_prime(z3[j, 0]) * w3[j, k]
 
                 # layer 2 grad_w2 and grad_b2
 
-                for j in range(w2.shape[0]):
-                    grad_b2[j, 0] += grad_a2[j, 0] * sigmoid_prime(z2[j, 0])
-                    for k in range(w2.shape[1]):
+                for j in range(grad_w2.shape[0]):
+
+                    for k in range(grad_w2.shape[1]):
                         grad_w2[j, k] += grad_a2[j, 0] * sigmoid_prime(z2[j, 0]) * a1[k, 0]
 
-                # calculate grad_a1 for the next layer
+                for j in range(grad_b2.shape[0]):
+                    grad_b2[j, 0] += grad_a2[j, 0] * sigmoid_prime(z2[j, 0])
 
+                # calculate grad_a1 for the next layer
+                grad_a1 = np.zeros((150, 1))
                 for k in range(150):
                     for j in range(60):
-                        grad_a1[k, 0] = grad_a2[j, 0] * sigmoid_prime(z2[j, 0]) * w2[j, k]
+                        grad_a1[k, 0] += grad_a2[j, 0] * sigmoid_prime(z2[j, 0]) * w2[j, k]
 
                 # layer 1 grad_w1 and grad_b1
 
-                for j in range(w1.shape[0]):
-                    grad_b1[j, 0] += grad_a1[j, 0] * sigmoid_prime(z1[j, 0]) * 1
-                    for k in range(w1.shape[1]):
+                for j in range(grad_w1.shape[0]):
+
+                    for k in range(grad_w1.shape[1]):
                         grad_w1[j, k] += grad_a1[j, 0] * sigmoid_prime(z1[j, 0]) * a0[k, 0]
+
+                for j in range(grad_b1.shape[0]):
+                    grad_b1[j, 0] += grad_a1[j, 0] * sigmoid_prime(z1[j, 0]) * 1
 
             # upgrade w and b
 
@@ -242,12 +237,38 @@ def back_propagation(W, b, data_set, epochs, batch_size, learning_rate):
             b2 -= (learning_rate * (grad_b2 / batch_size))
             b3 -= (learning_rate * (grad_b3 / batch_size))
         # add average of epoch cost
-        epoch_costs.append(current_epoch_cost / len(data_set))
+        epoch_cost = 0
+        trueGuess = 0
+
+        for data in data_set:
+            (a0, label) = data
+
+            z1 = (w1 @ a0) + b1
+            a1 = sigmoid(z1)
+
+            z2 = (w2 @ a1) + b2
+            a2 = sigmoid(z2)
+
+            z3 = (w3 @ a2) + b3
+            a3 = sigmoid(z3)
+
+            epoch_cost += calculate_cost(a3, label)
+            predicted_label = np.where(a3 == np.amax(a3))
+            original_label = np.where(label == np.amax(label))
+            if predicted_label == original_label:
+                trueGuess += 1
+
+        epoch_costs.append(epoch_cost / len(data_set))
         accuracy = (trueGuess / len(data_set)) * 100
         print(accuracy)
         epoch_accuracies.append(accuracy)
 
     print(epoch_accuracies)
+    # print("average accuracy of training")
+    print(statistics.mean(epoch_accuracies))
+    # print("average cost of training")
+    print(statistics.mean(epoch_costs))
+
     plt.plot(np.arange(1, 6), epoch_costs)
     plt.show()
     end_time = time.time()
@@ -267,106 +288,115 @@ def vectorized_back_propagation(W, b, data_set, epochs, batch_size, learning_rat
 
     epoch_costs = []
     epoch_accuracies = []
-    for time in range(10):
-        for e in range(epochs):
-            trueGuess = 0
-            accuracy = 0
-            current_epoch_cost = 0
-            np.random.shuffle(data_set)
-            # batch_num = int(math.ceil(200 / batch_size))
-            batches = [data_set[i:i + batch_size] for i in range(0, len(data_set), batch_size)]
-            train_random_200_output = np.zeros((4, len(data_set)))
-            original_output = np.zeros((4, len(data_set)))
+    for e in range(epochs):
 
-            for batch in batches:
+        np.random.shuffle(data_set)
 
-                grad_w1 = np.zeros((150, 102))
-                grad_w2 = np.zeros((60, 150))
-                grad_w3 = np.zeros((4, 60))
+        batches = [data_set[i:i + batch_size] for i in range(0, len(data_set), batch_size)]
 
-                grad_b1 = np.zeros((150, 1))
-                grad_b2 = np.zeros((60, 1))
-                grad_b3 = np.zeros((4, 1))
+        for batch in batches:
 
-                grad_a1 = np.zeros((150, 1))
+            grad_w1 = np.zeros((150, 102))
+            grad_w2 = np.zeros((60, 150))
+            grad_w3 = np.zeros((4, 60))
+
+            grad_b1 = np.zeros((150, 1))
+            grad_b2 = np.zeros((60, 1))
+            grad_b3 = np.zeros((4, 1))
+
+            for image in batch:
+                # compute output
+                (a0, label) = image
+
+                z1 = w1 @ a0 + b1
+
+                a1 = sigmoid(z1)
+
+                z2 = w2 @ a1 + b2
+
+                a2 = sigmoid(z2)
+
+                z3 = w3 @ a2 + b3
+
+                a3 = sigmoid(z3)
+
+                # backpropagation phase
+                # layer 3 grad_w3 and grad_b3
+
+                grad_b3 += 2 * (a3 - label) * a3 * (1 - a3)
+
+                grad_w3 += (2 * (a3 - label) * (a3 * (1 - a3))) @ np.transpose(a2)
+
+                # calculate grad_a2 for the next layer
+
+                #
                 grad_a2 = np.zeros((60, 1))
+                grad_a2 += np.transpose(w3) @ (2 * (a3 - label) * (a3 * (1 - a3)))
 
-                for image in batch:
+                # layer 2 grad_w2 and grad_b2
 
-                    # compute output
-                    (a0, label) = image
+                grad_b2 += grad_a2 * (a2 * (1 - a2))
 
-                    original_label = np.argmax(label, axis=0)
+                grad_w2 += ((a2 * (1 - a2)) * grad_a2) @ np.transpose(a1)
 
-                    z1 = (w1 @ a0) + b1
-                    a1 = sigmoid(z1)
+                # calculate grad_a1 for the next layer
+                grad_a1 = np.zeros((150, 1))
 
-                    z2 = (w2 @ a1) + b2
-                    a2 = sigmoid(z2)
+                grad_a1 += np.transpose(w2) @ (grad_a2 * (a2 * (1 - a2)))
 
-                    z3 = (w3 @ a2) + b3
-                    a3 = sigmoid(z3)
+                # layer 1 grad_w1 and grad_b1
 
-                    cost = calculate_cost(a3, label)
+                grad_b1 += grad_a1 * (a1 * (1 - a1))
 
-                    predicted_label = np.argmax(a3, axis=0)
-                    if predicted_label[0] == original_label[0]:
-                        trueGuess += 1
-                    current_epoch_cost += cost
+                grad_w1 += (grad_a1 * (a1 * (1 - a1))) @ np.transpose(a0)
 
-                    # backpropagation phase
-                    # layer 3 grad_w3 and grad_b3
+            # upgrade w and b
 
-                    grad_b3 += 2 * (a3 - label) * sigmoid_prime(z3)
+            w1 -= (learning_rate * (grad_w1 / batch_size))
 
-                    grad_w3 += (2 * (a3 - label) * sigmoid_prime(z3)) @ np.transpose(a2)
+            w2 -= (learning_rate * (grad_w2 / batch_size))
+            w3 -= (learning_rate * (grad_w3 / batch_size))
 
-                    # calculate grad_a2 for the next layer
+            b1 -= (learning_rate * (grad_b1 / batch_size))
+            b2 -= (learning_rate * (grad_b2 / batch_size))
+            b3 -= (learning_rate * (grad_b3 / batch_size))
+        # add average of epoch cost
+        epoch_cost = 0
+        trueGuess = 0
+        for data in data_set:
+            (a0, label) = data
 
-                    # print(np.transpose(w3).shape)
-                    # print()
-                    grad_a2 += np.transpose(w3) @ (2 * (a3 - label) * sigmoid_prime(z3))
+            z1 = (w1 @ a0) + b1
+            a1 = sigmoid(z1)
 
-                    # layer 2 grad_w2 and grad_b2
+            z2 = (w2 @ a1) + b2
+            a2 = sigmoid(z2)
 
-                    grad_b2 += grad_a2 * sigmoid_prime(z2)
+            z3 = (w3 @ a2) + b3
+            a3 = sigmoid(z3)
+            c = 0
+            for j in range(4):
+                c += np.power((a3[j, 0] - label[j, 0]), 2)
+            epoch_cost += c
 
-                    grad_w2 += (grad_a2 * sigmoid_prime(z2)) @ np.transpose(a1)
+            predicted_label = np.where(a3 == np.amax(a3))
+            original_label = np.where(label == np.amax(label))
+            if predicted_label == original_label:
+                trueGuess += 1
 
-                    # calculate grad_a1 for the next layer
-
-                    grad_a1 = np.transpose(w2) @ (grad_a2 * sigmoid_prime(z2))
-
-                    # layer 1 grad_w1 and grad_b1
-
-                    grad_b1 += grad_a1 * sigmoid_prime(z1)
-
-                    grad_w1 += (grad_a1 * sigmoid_prime(z1)) @ np.transpose(a0)
-
-                # upgrade w and b
-
-                w1 -= (learning_rate * (grad_w1 / batch_size))
-
-                w2 -= (learning_rate * (grad_w2 / batch_size))
-                w3 -= (learning_rate * (grad_w3 / batch_size))
-
-                b1 -= (learning_rate * (grad_b1 / batch_size))
-                b2 -= (learning_rate * (grad_b2 / batch_size))
-                b3 -= (learning_rate * (grad_b3 / batch_size))
-            # add average of epoch cost
-            epoch_costs.append(current_epoch_cost / len(data_set))
-            accuracy = (trueGuess / len(data_set)) * 100
-            print(accuracy)
-            epoch_accuracies.append(accuracy)
+        epoch_costs.append(epoch_cost / len(data_set))
+        accuracy = (trueGuess / len(data_set)) * 100
+        print(accuracy)
+        epoch_accuracies.append(accuracy)
 
     print(epoch_accuracies)
     print("average accuracy of training")
     print(statistics.mean(epoch_accuracies))
-    print(statistics.mean(epoch_costs))
     print("average cost of training")
-    plt.plot(np.arange(1, (10 * epochs) + 1), epoch_costs)
+    print(statistics.mean(epoch_costs))
+    plt.plot([x for x in range(epochs)], epoch_costs)
     plt.show()
-    return [w1, w2, w3], [b1, b2, b3]
+    return [w1, w2, w3], [b1, b2, b3], statistics.mean(epoch_accuracies)
 
 
 def momentum(W, b, data_set, epochs, batch_size, learning_rate):
@@ -381,122 +411,134 @@ def momentum(W, b, data_set, epochs, batch_size, learning_rate):
 
     epoch_costs = []
     epoch_accuracies = []
-    for time in range(10):
-        for e in range(epochs):
-            trueGuess = 0
-            accuracy = 0
-            current_epoch_cost = 0
-            np.random.shuffle(data_set)
-            # batch_num = int(math.ceil(200 / batch_size))
-            batches = [data_set[i:i + batch_size] for i in range(0, len(data_set), batch_size)]
-            train_random_200_output = np.zeros((4, len(data_set)))
-            original_output = np.zeros((4, len(data_set)))
-            w1_accumulate = 0
-            w2_accumulate = 0
-            w3_accumulate = 0
 
-            b1_accumulate = 0
-            b2_accumulate = 0
-            b3_accumulate = 0
+    for e in range(epochs):
+        trueGuess = 0
+        accuracy = 0
+        current_epoch_cost = 0
+        np.random.shuffle(data_set)
+        # batch_num = int(math.ceil(200 / batch_size))
+        batches = [data_set[i:i + batch_size] for i in range(0, len(data_set), batch_size)]
+        train_random_200_output = np.zeros((4, len(data_set)))
+        original_output = np.zeros((4, len(data_set)))
+        w1_accumulate = 0
+        w2_accumulate = 0
+        w3_accumulate = 0
 
-            for batch in batches:
+        b1_accumulate = 0
+        b2_accumulate = 0
+        b3_accumulate = 0
 
-                grad_w1 = np.zeros((150, 102))
-                grad_w2 = np.zeros((60, 150))
-                grad_w3 = np.zeros((4, 60))
+        for batch in batches:
 
-                grad_b1 = np.zeros((150, 1))
-                grad_b2 = np.zeros((60, 1))
-                grad_b3 = np.zeros((4, 1))
+            grad_w1 = np.zeros((150, 102))
+            grad_w2 = np.zeros((60, 150))
+            grad_w3 = np.zeros((4, 60))
 
-                grad_a1 = np.zeros((150, 1))
+            grad_b1 = np.zeros((150, 1))
+            grad_b2 = np.zeros((60, 1))
+            grad_b3 = np.zeros((4, 1))
+
+            for image in batch:
+                # compute output
+                (a0, label) = image
+
+                z1 = w1 @ a0 + b1
+                a1 = sigmoid(z1)
+
+                z2 = w2 @ a1 + b2
+                a2 = sigmoid(z2)
+
+                z3 = w3 @ a2 + b3
+                a3 = sigmoid(z3)
+
+                # backpropagation phase
+                # layer 3 grad_w3 and grad_b3
+
+                grad_b3 += 2 * (a3 - label) * a3 * (1 - a3)
+
+                grad_w3 += (2 * (a3 - label) * (a3 * (1 - a3))) @ np.transpose(a2)
+
+                # calculate grad_a2 for the next layer
+
+                #
                 grad_a2 = np.zeros((60, 1))
+                grad_a2 += np.transpose(w3) @ (2 * (a3 - label) * (a3 * (1 - a3)))
 
-                for image in batch:
+                # layer 2 grad_w2 and grad_b2
 
-                    # compute output
-                    (a0, label) = image
+                grad_b2 += grad_a2 * (a2 * (1 - a2))
 
-                    original_label = np.argmax(label, axis=0)
+                grad_w2 += ((a2 * (1 - a2)) * grad_a2) @ np.transpose(a1)
 
-                    z1 = (w1 @ a0) + b1
-                    a1 = sigmoid(z1)
+                # calculate grad_a1 for the next layer
+                grad_a1 = np.zeros((150, 1))
 
-                    z2 = (w2 @ a1) + b2
-                    a2 = sigmoid(z2)
+                grad_a1 += np.transpose(w2) @ (grad_a2 * (a2 * (1 - a2)))
 
-                    z3 = (w3 @ a2) + b3
-                    a3 = sigmoid(z3)
+                # layer 1 grad_w1 and grad_b1
 
-                    cost = calculate_cost(a3, label)
+                grad_b1 += grad_a1 * (a1 * (1 - a1))
 
-                    predicted_label = np.argmax(a3, axis=0)
-                    if predicted_label[0] == original_label[0]:
-                        trueGuess += 1
-                    current_epoch_cost += cost
+                grad_w1 += (grad_a1 * (a1 * (1 - a1))) @ np.transpose(a0)
+            # upgrade w and b
 
-                    # backpropagation phase
-                    # layer 3 grad_w3 and grad_b3
+            w1 -= ((learning_rate * (grad_w1 / batch_size)) + w1_accumulate)
+            w2 -= ((learning_rate * (grad_w2 / batch_size)) + w2_accumulate)
+            w3 -= ((learning_rate * (grad_w3 / batch_size)) + w3_accumulate)
 
-                    grad_b3 += 2 * (a3 - label) * sigmoid_prime(z3)
+            w1_accumulate = ((learning_rate * (grad_w1 / batch_size)) + w1_accumulate) * momentum_factor
+            w2_accumulate = ((learning_rate * (grad_w2 / batch_size)) + w2_accumulate) * momentum_factor
+            w3_accumulate = ((learning_rate * (grad_w3 / batch_size)) + w3_accumulate) * momentum_factor
 
-                    grad_w3 += (2 * (a3 - label) * sigmoid_prime(z3)) @ np.transpose(a2)
+            b1 -= ((learning_rate * (grad_b1 / batch_size)) + b1_accumulate)
+            b2 -= ((learning_rate * (grad_b2 / batch_size)) + b2_accumulate)
+            b3 -= ((learning_rate * (grad_b3 / batch_size)) + b3_accumulate)
 
-                    # calculate grad_a2 for the next layer
+            b1_accumulate = ((learning_rate * (grad_b1 / batch_size)) + b1_accumulate) * momentum_factor
+            b2_accumulate = ((learning_rate * (grad_b2 / batch_size)) + b2_accumulate) * momentum_factor
+            b3_accumulate = ((learning_rate * (grad_b3 / batch_size)) + b3_accumulate) * momentum_factor
+        # add average of epoch cost
+        epoch_cost = 0
+        trueGuess = 0
+        for data in data_set:
+            (a0, label) = data
 
-                    # print(np.transpose(w3).shape)
-                    # print()
-                    grad_a2 += np.transpose(w3) @ (2 * (a3 - label) * sigmoid_prime(z3))
+            z1 = (w1 @ a0) + b1
+            a1 = sigmoid(z1)
 
-                    # layer 2 grad_w2 and grad_b2
+            z2 = (w2 @ a1) + b2
+            a2 = sigmoid(z2)
 
-                    grad_b2 += grad_a2 * sigmoid_prime(z2)
+            z3 = (w3 @ a2) + b3
+            a3 = sigmoid(z3)
+            c = 0
+            for j in range(4):
+                c += np.power((a3[j, 0] - label[j, 0]), 2)
+            epoch_cost += c
 
-                    grad_w2 += (grad_a2 * sigmoid_prime(z2)) @ np.transpose(a1)
+            predicted_label = np.where(a3 == np.amax(a3))
+            original_label = np.where(label == np.amax(label))
+            if predicted_label == original_label:
+                trueGuess += 1
 
-                    # calculate grad_a1 for the next layer
-
-                    grad_a1 = np.transpose(w2) @ (grad_a2 * sigmoid_prime(z2))
-
-                    # layer 1 grad_w1 and grad_b1
-
-                    grad_b1 += grad_a1 * sigmoid_prime(z1)
-
-                    grad_w1 += (grad_a1 * sigmoid_prime(z1)) @ np.transpose(a0)
-
-                # upgrade w and b
-
-                w1 -= ((learning_rate * (grad_w1 / batch_size)) + w1_accumulate)
-                w2 -= ((learning_rate * (grad_w2 / batch_size)) + w2_accumulate)
-                w3 -= ((learning_rate * (grad_w3 / batch_size)) + w3_accumulate)
-
-                w1_accumulate = ((learning_rate * (grad_w1 / batch_size)) + w1_accumulate) * momentum_factor
-                w2_accumulate = ((learning_rate * (grad_w2 / batch_size)) + w2_accumulate) * momentum_factor
-                w3_accumulate = ((learning_rate * (grad_w3 / batch_size)) + w3_accumulate) * momentum_factor
-
-                b1 -= ((learning_rate * (grad_b1 / batch_size)) + b1_accumulate)
-                b2 -= ((learning_rate * (grad_b2 / batch_size)) + b2_accumulate)
-                b3 -= ((learning_rate * (grad_b3 / batch_size)) + b3_accumulate)
-
-                b1_accumulate = ((learning_rate * (grad_b1 / batch_size)) + b1_accumulate) * momentum_factor
-                b2_accumulate = ((learning_rate * (grad_b2 / batch_size)) + b2_accumulate) * momentum_factor
-                b3_accumulate = ((learning_rate * (grad_b3 / batch_size)) + b3_accumulate) * momentum_factor
-            # add average of epoch cost
-            epoch_costs.append(current_epoch_cost / len(data_set))
-            accuracy = (trueGuess / len(data_set)) * 100
-            print(accuracy)
-            epoch_accuracies.append(accuracy)
+        epoch_costs.append(epoch_cost / len(data_set))
+        accuracy = (trueGuess / len(data_set)) * 100
+        print(accuracy)
+        epoch_accuracies.append(accuracy)
 
     print(epoch_accuracies)
     print("average accuracy of training")
     print(statistics.mean(epoch_accuracies))
-    print(statistics.mean(epoch_costs))
     print("average cost of training")
-    plt.plot(np.arange(1, (10 * epochs) + 1), epoch_costs)
+    print(statistics.mean(epoch_costs))
+    plt.plot([x for x in range(epochs)], epoch_costs)
     plt.show()
-    return [w1, w2, w3], [b1, b2, b3]
+    return [w1, w2, w3], [b1, b2, b3], statistics.mean(epoch_accuracies)
 
 
+#
+#
 def back_prop_softmax(W, b, data_set, epochs, batch_size, learning_rate):
     w1 = W[0]
     w2 = W[1]
@@ -528,60 +570,51 @@ def back_prop_softmax(W, b, data_set, epochs, batch_size, learning_rate):
                 grad_b2 = np.zeros((60, 1))
                 grad_b3 = np.zeros((4, 1))
 
-                grad_a1 = np.zeros((150, 1))
-                grad_a2 = np.zeros((60, 1))
-
                 for image in batch:
-
                     # compute output
                     (a0, label) = image
 
-                    original_label = np.argmax(label, axis=0)
+                    z1 = w1 @ a0 + b1
 
-                    z1 = (w1 @ a0) + b1
                     a1 = softmax(z1)
 
-                    z2 = (w2 @ a1) + b2
+                    z2 = w2 @ a1 + b2
+
                     a2 = softmax(z2)
 
-                    z3 = (w3 @ a2) + b3
+                    z3 = w3 @ a2 + b3
+
                     a3 = softmax(z3)
-
-                    cost = calculate_cost(a3, label)
-
-                    predicted_label = np.argmax(a3, axis=0)
-                    if predicted_label[0] == original_label[0]:
-                        trueGuess += 1
-                    current_epoch_cost += cost
 
                     # backpropagation phase
                     # layer 3 grad_w3 and grad_b3
 
-                    grad_b3 += 2 * (a3 - label) * softmax_prime(z3)
+                    grad_b3 += 2 * (a3 - label) * (softmax_prime(z3))
 
-                    grad_w3 += (2 * (a3 - label) * softmax_prime(z3)) @ np.transpose(a2)
+                    grad_w3 += (2 * (a3 - label) * (softmax_prime(z3))) @ np.transpose(a2)
 
                     # calculate grad_a2 for the next layer
 
-                    # print(np.transpose(w3).shape)
-                    # print()
-                    grad_a2 += np.transpose(w3) @ (2 * (a3 - label) * softmax_prime(z3))
+                    #
+                    grad_a2 = np.zeros((60, 1))
+                    grad_a2 += np.transpose(w3) @ (2 * (a3 - label) * (softmax_prime(z3)))
 
                     # layer 2 grad_w2 and grad_b2
 
-                    grad_b2 += grad_a2 * softmax_prime(z2)
+                    grad_b2 += grad_a2 * (softmax_prime(z2))
 
-                    grad_w2 += (grad_a2 * softmax_prime(z2)) @ np.transpose(a1)
+                    grad_w2 += ((softmax_prime(z2)) * grad_a2) @ np.transpose(a1)
 
                     # calculate grad_a1 for the next layer
+                    grad_a1 = np.zeros((150, 1))
 
-                    grad_a1 = np.transpose(w2) @ (grad_a2 * softmax_prime(z2))
+                    grad_a1 += np.transpose(w2) @ (grad_a2 * (softmax_prime(z2)))
 
                     # layer 1 grad_w1 and grad_b1
 
-                    grad_b1 += grad_a1 * softmax_prime(z1)
+                    grad_b1 += grad_a1 * (softmax_prime(z1))
 
-                    grad_w1 += (grad_a1 * softmax_prime(z1)) @ np.transpose(a0)
+                    grad_w1 += (grad_a1 * (softmax_prime(z1))) @ np.transpose(a0)
 
                 # upgrade w and b
 
@@ -593,23 +626,48 @@ def back_prop_softmax(W, b, data_set, epochs, batch_size, learning_rate):
                 b1 -= (learning_rate * (grad_b1 / batch_size))
                 b2 -= (learning_rate * (grad_b2 / batch_size))
                 b3 -= (learning_rate * (grad_b3 / batch_size))
-            # add average of epoch cost
-            epoch_costs.append(current_epoch_cost / len(data_set))
+                # add average of epoch cost
+            epoch_cost = 0
+            trueGuess = 0
+            for data in data_set:
+                (a0, label) = data
+
+                z1 = (w1 @ a0) + b1
+                a1 = softmax(z1)
+
+                z2 = (w2 @ a1) + b2
+                a2 = softmax(z2)
+
+                z3 = (w3 @ a2) + b3
+                a3 = softmax(z3)
+                e = np.exp(a3)
+                cost = (np.log(e/np.sum(e))) * -1
+                epoch_cost += cost
+
+                predicted_label = np.where(a3 == np.amax(a3))
+                original_label = np.where(label == np.amax(label))
+                if predicted_label == original_label:
+                    trueGuess += 1
+
+            epoch_costs.append(epoch_cost / len(data_set))
             accuracy = (trueGuess / len(data_set)) * 100
             print(accuracy)
             epoch_accuracies.append(accuracy)
 
-    print(epoch_accuracies)
-    print("average accuracy of training")
-    print(statistics.mean(epoch_accuracies))
-    print(statistics.mean(epoch_costs))
-    print("average cost of training")
-    plt.plot(np.arange(1, (10 * epochs) + 1), epoch_costs)
-    plt.show()
-    return [w1, w2, w3], [b1, b2, b3]
+        print(epoch_accuracies)
+        print("average accuracy of training")
+        print(statistics.mean(epoch_accuracies))
+        print("average cost of training")
+        print(statistics.mean(epoch_costs))
+        plt.plot([x for x in range(epochs)], epoch_costs)
+        plt.show()
+        return [w1, w2, w3], [b1, b2, b3], statistics.mean(epoch_accuracies)
 
 
 def main():
+
+    # uncomment what ever you want to Run ;)
+
     w1 = np.random.standard_normal(size=(150, 102))
     w2 = np.random.standard_normal(size=(60, 150))
     w3 = np.random.standard_normal(size=(4, 60))
@@ -629,11 +687,36 @@ def main():
     # feed_forward(W,b,train_random_200_input)
     # print("now try non-vectorized back prop with 200 train set :")
 
-    # W , b = back_propagation(W, b, train_random_200_input , epochs , batch_size, learning_rate)
-    print("well now train the model with all train set :")
-    W, b = back_prop_softmax(W, b, train_set , epochs , batch_size, learning_rate)
-    print("test set")
-    back_prop_softmax(W, b, test_set, epochs, batch_size, learning_rate)
+
+    # W, b = back_propagation(W, b, train_random_200_input, epochs, batch_size, learning_rate)
+
+    # print("well now train the model with all train set :")
+    # avg_acc_train = 0
+    # avg_acc_test = 0
+    # for i in range(10):
+    #     w1 = np.random.standard_normal(size=(150, 102))
+    #     w2 = np.random.standard_normal(size=(60, 150))
+    #     w3 = np.random.standard_normal(size=(4, 60))
+    #     W = [w1, w2, w3]
+    #
+    #     # initialize bias vectors zero
+    #     b1 = np.zeros((150, 1))
+    #     b2 = np.zeros((60, 1))
+    #     b3 = np.zeros((4, 1))
+    #     b = [b1, b2, b3]
+    #     W, b, acc = vectorized_back_propagation(W, b, train_set, epochs, batch_size, learning_rate)
+    #     avg_acc_train += acc
+    #     avg_acc_test += feed_forward(W, b, test_set)
+    # print("Avg Train")
+    # print(avg_acc_train / 10)
+    # print("==============================")
+    # print("Avg Test")
+    # print(avg_acc_test / 10)
+
+    W, b, acc = back_prop_softmax(W, b, train_set, epochs, batch_size, learning_rate)
+    print(acc)
+    # acc_test= feed_forward(W, b, test_set)
+    # print(acc_test)
 
 
 if __name__ == '__main__':
