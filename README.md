@@ -4,7 +4,7 @@
 
 The goal of this project is to classify different types of fruits using neural networks, specifically Fully Connected Feedforward networks. We will tackle the fruit classification problem using these neural networks, which we have learned about in our course.
 
-In this problem, our input consists of four types of fruits, and the model needs to identify the fruits correctly. The dataset we will be using is called "360Fruit." This dataset contains a diverse range of fruit types, with images captured in 360 degrees. However, for simplicity and to improve the algorithm's accuracy, we have selected only four fruit classes for this project.
+In this problem, our input consists of four types of fruits, and the model needs to identify the fruits correctly. The dataset we will use is called "Fruit360." This dataset contains a diverse range of fruit types, with images captured in 360 degrees. However, for simplicity and to improve the algorithm's accuracy, we have selected only four fruit classes for this project.
 
 In the dataset, each class comprises approximately 491 images with dimensions of 100x100 pixels. Considering the direct use of image pixels as the neural network's input would result in a large input layer with 10,000 neurons, making the network overly complex. To address this, we initially employ feature extraction techniques to extract 360 features. We then apply feature vector dimension reduction techniques, reducing the size to 102, which will serve as the input to our neural network.
 
